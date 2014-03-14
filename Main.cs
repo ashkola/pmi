@@ -170,8 +170,8 @@ namespace PMI
 							word.Selection.TypeParagraph();
 //							'Предусловия
 							word.Selection.set_Style(getStyle(0));
-							word.Selection.TypeText(StripHTML(iDic[i - 1][7]));
-//							word.Selection.Text = htmlToText(iDic[i - 1][7]);
+//							word.Selection.TypeText(StripHTML(iDic[i - 1][7]));
+							word.Selection.Text = htmlToText(iDic[i - 1][7]);
 
 							word.Selection.TypeParagraph();
 							if (Config._attachment)
@@ -237,8 +237,8 @@ namespace PMI
 								for (int colInRow = 2; colInRow <= 3; colInRow++)
 								{
 									table.Cell(row, colInRow).Select();
-//									word.Selection.Text = htmlToText(iDic[i - rowsCnt + row - 2][colInRow - 1]);
-									word.Selection.Text = StripHTML(iDic[i - rowsCnt + row - 2][colInRow - 1]);
+									word.Selection.Text = htmlToText(iDic[i - rowsCnt + row - 2][colInRow - 1]);
+//									word.Selection.Text = StripHTML(iDic[i - rowsCnt + row - 2][colInRow - 1]);
 								}
 							}
 							word.Selection.MoveDown(4, 3);
