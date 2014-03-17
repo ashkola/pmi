@@ -1,20 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
-using MailForALM;
 using Microsoft.Office.Interop.Word;
-using NotesFor.HtmlToOpenXml;
+using Novacode;
 using PMI.Properties;
 using TDAPIOLELib;
-using Document = DocumentFormat.OpenXml.Wordprocessing.Document;
+using Border = Novacode.Border;
 using List = TDAPIOLELib.List;
+using Paragraph = Novacode.Paragraph;
+using Table = Novacode.Table;
 
 namespace PMI
 {
@@ -27,7 +26,7 @@ namespace PMI
 
 		public string DoWork()
 		{
-			var xDic = new List<List<string>>();
+			var resultTestSteps = new List<List<string>>();
 			var tdConnection = new TDAPIOLELib.TDConnection( );
 //			Config.Get();
 			try
@@ -50,12 +49,12 @@ namespace PMI
 			testFilter.Order["TS_NAME"] = 2;
 			testFilter.OrderDirection["TS_SUBJECT"] = tagTDAPI_FILTERORDER.TDOLE_ASCENDING;
 			List testList = testFilter.NewList;
-			this.Value = testList[1].Name;
+			this.Value = (testList.Count > 0)?testList[1].Name:"";
 			foreach (Test testObj in testList)
 			{
-				setEvaluatedSteps(testObj, testObj, ref xDic);
+				setEvaluatedSteps(testObj, testObj, ref resultTestSteps);
 			}
-			createWord(xDic);
+			createWord(resultTestSteps);
 			return _docPath;
 		}
 
@@ -113,6 +112,154 @@ namespace PMI
 		}
 
 		private void createWord(List<List<string>> iDic)
+		{
+			// Modify to suit your machine:
+			string docName = @"c:\docxexample.docx";
+
+			// Create a document in memory:
+			var doc = DocX.Create(docName);
+			var border = new Border();
+
+			var headLineFormat = new Formatting();
+			headLineFormat.FontFamily = new System.Drawing.FontFamily("Arial Black");
+			headLineFormat.Size = 18D;
+			headLineFormat.Position = 12;
+
+			var tableHeaderFormat = new Formatting();
+			tableHeaderFormat.Bold = true;
+
+			var headRowNum = 0;
+			var tailRowNum = 0;
+			var currentTestId = iDic[0][4] ?? "";
+			var previousTestSubject = "";
+
+			iDic.Add(new List<string>
+			                   	{
+			                   		"","","","","","","","","",""
+			                   	});
+			for(int i=0;i<iDic.Count;i++)
+			{
+				if(iDic[i][4] == currentTestId)
+				{
+					tailRowNum = i;
+				} else
+				{
+					if (i > 0)
+					{
+						int rowsCount = tailRowNum - headRowNum + 1;
+//						'Subject writing
+						string currentTestSubject = iDic[i - 1][6];
+						if (!currentTestSubject.Equals(previousTestSubject))
+						{
+							var currSubjectArray = new List<string>(currentTestSubject.Split('\\'));
+							var prevSubjectArray = new List<string>(previousTestSubject.Split('\\'));
+							for(int headerLevel = 1; headerLevel < currSubjectArray.Count(); headerLevel++)
+							{
+								if(prevSubjectArray.Count < currSubjectArray.Count)
+								{
+									prevSubjectArray.Add("");
+								}
+								if (!currSubjectArray[headerLevel].Equals(prevSubjectArray[headerLevel]))
+								{
+									var p = doc.InsertParagraph();
+									p.StyleName = "Heading1";
+									p.Append(currSubjectArray[headerLevel]);
+								}
+							}
+							previousTestSubject = currentTestSubject;
+						}
+						if (G_IS_FULL_REPORT)
+						{
+//							'Test name
+							var p = doc.InsertParagraph();
+							p.StyleName = "Heading3";
+							p.Append(iDic[i - 1][5]);
+//							'Description
+							doc.InsertParagraph(htmlToText(iDic[i - 1][7]));
+
+							if (Config._attachment)
+							{
+								if (iDic[i - 1][8] != "")
+								{
+									doc.InsertParagraph("Вложения:");
+									doc.InsertParagraph("");
+									foreach (string fileName in iDic[i - 1][8].Split(';'))
+									{
+										if (!fileName.Equals(""))
+										{
+											var fileNames = fileName.Split('\\');
+//											doc.InsertDocument(DocX.Load(fileNames[fileNames.Count() - 1]));
+											doc.InsertDocument(DocX.Load(@"c:\docxexample.docx"));
+										}
+									}
+								}
+							}
+//							'Table
+							var t = doc.InsertTable(rowsCount + 1, 3);
+							foreach (TableBorderType borderType in Enum.GetValues(typeof(TableBorderType)))
+							{
+								t.SetBorder(borderType, border);
+							}
+
+//							t.AutoFit = AutoFit.Contents;
+							t.Rows[0].Cells[0].Width = 50;
+							t.Rows[0].Cells[1].Width = 400;
+							t.Rows[0].Cells[2].Width = 400;
+
+//							'Table header
+							t.Rows[0].Cells[0].Paragraphs[0].Append("Номер шага");
+							t.Rows[0].Cells[0].Paragraphs[0].Bold();
+							t.Rows[0].Cells[1].Paragraphs[0].Append("Действие в системе");
+							t.Rows[0].Cells[1].Paragraphs[0].Bold();
+							t.Rows[0].Cells[2].Paragraphs[0].Append("Ожидаемая реакция системы");
+							t.Rows[0].Cells[2].Paragraphs[0].Bold();
+
+							for (int row = 1; row <= rowsCount; row++)
+							{
+								t.Rows[row].Cells[0].Width = 50;
+								t.Rows[row].Cells[0].Paragraphs[0].Append(row.ToString() + ".");
+//								if (Config._attachment)
+//								{
+//									if (iDic[row - 2][9] != "")
+//									{
+////										word.Selection.TypeParagraph();
+//										foreach (string fileName in iDic[row - 2][9].Split(';'))
+//										{
+//											if (!fileName.Equals(""))
+//											{
+//												var xArr = fileName.Split('\\');
+////												word.Selection.InlineShapes.AddOLEObject(null, fileName, false, true, null, 1, xArr[xArr.Count() - 1]);
+//											}
+//										}
+//									}
+//								}
+								for (int colInRow = 1; colInRow < 3; colInRow++)
+								{
+									t.Rows[row].Cells[colInRow].Width = 400;
+									t.Rows[row].Cells[colInRow].Width = 400;
+									t.Rows[row].Cells[colInRow].Paragraphs[0].Append(htmlToText(iDic[i - rowsCount + row - 1][colInRow]));
+								}
+							}
+						} else
+						{
+//							'Test names
+							doc.InsertParagraph("Тест-кейс: " + iDic[i - 1][5]);
+						}
+					}
+					doc.InsertParagraph("");
+					headRowNum = i;
+					tailRowNum = i;
+					currentTestId = iDic[i][4];
+				}
+			}
+			doc.Save();
+			// Open in Word:
+			Process.Start("WINWORD.EXE", docName);
+			return;
+		}
+
+
+		private void createWord2(List<List<string>> iDic)
 		{
 			var word = new Microsoft.Office.Interop.Word.Application();
 			word.Visible = G_VISIBLE_WORD;
@@ -480,52 +627,5 @@ namespace PMI
 			return browser.Document.Body.OuterText;
 		}
 
-//		private string htmlToText2(string sHTML)
-//		{
-//
-//			var HtmlDocument = new H
-//			browser.DocumentText = sHTML;
-//			do
-//			{
-//				System.Windows.Forms.Application.DoEvents();
-//			} while (browser.ReadyState != WebBrowserReadyState.Complete);
-//			return browser.Document.Body.OuterText;
-//		}
-
-
-		public void DoOpenXml(string str)
-		{
-			const string filename = "test.docx";
-//			string html = File.ReadAllText("c:\\test.dat");
-			string html = Resources.DemoHtml;
-			if (File.Exists(filename)) File.Delete(filename);
-
-			using (var generatedDocument = new MemoryStream())
-			{
-				using (WordprocessingDocument package = WordprocessingDocument.Create(generatedDocument, WordprocessingDocumentType.Document))
-				{
-					MainDocumentPart mainPart = package.MainDocumentPart;
-					if (mainPart == null)
-					{
-						mainPart = package.AddMainDocumentPart();
-						new Document(new Body()).Save(mainPart);
-					}
-
-					var converter = new HtmlConverter(mainPart);
-					var body = mainPart.Document.Body;
-					var paragraphs = converter.Parse(html);
-					foreach (OpenXmlCompositeElement t in paragraphs)
-					{
-						body.Append(t);
-					}
-
-					mainPart.Document.Save();
-				}
-
-				File.WriteAllBytes(filename, generatedDocument.ToArray());
-			}
-
-			System.Diagnostics.Process.Start(filename);
-		}
 	}
 }
