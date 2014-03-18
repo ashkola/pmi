@@ -172,11 +172,11 @@
 			// label7
 			// 
 			this.label7.AutoSize = true;
-			this.label7.Location = new System.Drawing.Point(353, 140);
+			this.label7.Location = new System.Drawing.Point(353, 94);
 			this.label7.Name = "label7";
 			this.label7.Size = new System.Drawing.Size(43, 13);
 			this.label7.TabIndex = 12;
-			this.label7.Text = "v.03.14";
+			this.label7.Text = "v.03.17";
 			// 
 			// Form1
 			// 
@@ -204,7 +204,7 @@
 			this.MaximumSize = new System.Drawing.Size(435, 200);
 			this.MinimumSize = new System.Drawing.Size(435, 200);
 			this.Name = "Form1";
-			this.Text = "HP QC Exporter (TestCases)";
+			this.Text = "PMI export for QC";
 			this.Load += new System.EventHandler(this.Form1_Load);
 			this.ResumeLayout(false);
 			this.PerformLayout();

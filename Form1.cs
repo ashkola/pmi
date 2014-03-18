@@ -50,6 +50,5 @@ namespace PMI
 //			main.DoOpenXml();
 			startButton.Enabled = true;
 		}
-
 	}
 }
