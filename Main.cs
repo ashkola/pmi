@@ -52,13 +52,13 @@ namespace PMI
 			this.Value = (testList.Count > 0)?testList[1].Name:"";
 			foreach (Test testObj in testList)
 			{
-				setEvaluatedSteps(testObj, testObj, ref resultTestSteps);
+				SetEvaluatedSteps(testObj, testObj, ref resultTestSteps, null);
 			}
-			createWord(resultTestSteps);
+			CreateWord(resultTestSteps);
 			return _docPath;
 		}
 
-		private void setEvaluatedSteps(Test rootTest, Test testObj, ref List<List<string>> resultList)
+		private void SetEvaluatedSteps(Test rootTest, Test testObj, ref List<List<string>> resultList, TDAPIOLELib.List parameterList)
 		{
 			var stepF = testObj.DesignStepFactory;
 			var stepFilter = stepF.Filter;
@@ -75,19 +75,22 @@ namespace PMI
 					testAttachPath = testAttach.FileName + ";" + testAttachPath;
 				}
 			}
-			List stepList = stepFilter.NewList;			
+			List stepList = stepFilter.NewList;
 			foreach (DesignStep stepObj in stepList)
 			{
 				if (stepObj.LinkTestID != 0)
 				{
-					setEvaluatedSteps(rootTest, stepObj.LinkTest, ref resultList);
+					
+					ISupportParameterValues dsWithParameter = (ISupportParameterValues) stepObj;
+					var list = dsWithParameter.ParameterValueFactory.NewList("");
+					SetEvaluatedSteps(rootTest, stepObj.LinkTest, ref resultList, list);
 				} else
 				{
 					var line = new List<string>
 					           	{
 					           		stepObj.StepName,
-					           		stepObj.EvaluatedStepDescription,
-					           		stepObj.EvaluatedStepExpectedResult,
+					           		EvaluateStep(stepObj.StepDescription, parameterList),
+					           		EvaluateStep(stepObj.EvaluatedStepExpectedResult, parameterList),
 					           		"",
 					           		rootTest.ID.ToString(),
 					           		rootTest.Name,
@@ -111,10 +114,30 @@ namespace PMI
 			return;
 		}
 
-		private void createWord(List<List<string>> iDic)
+		private string EvaluateStep(string stepText,TDAPIOLELib.List paramList)
+		{
+			string result = stepText ?? "";
+			if (paramList == null) return stepText;
+			for (int i=1; i<=paramList.Count;i++)
+			{
+				string paramName = paramList[i].Name ?? "";
+
+				string paramValue = (paramList[i].ActualValue != null) ? StripHtml(paramList[i].ActualValue ?? "") : StripHtml(paramList[i].DefaultValue ?? "");
+				result = System.Text.RegularExpressions.Regex.Replace(result,
+						 @"<<<( )*"+paramName+"([^>])*>>>", "["+paramValue.Trim()+"]", 
+						 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+				result = System.Text.RegularExpressions.Regex.Replace(result,
+						 @"&lt;&lt;&lt;( )*" + paramName + "([^>])*&gt;&gt;&gt;", "[" + paramValue.Trim() + "]",
+						 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+			}
+			return result;
+		}
+
+		private void CreateWord(List<List<string>> iDic)
 		{
 			// Modify to suit your machine:
-			string docName = @"c:\docxexample.docx";
+//			string docName = @"c:\docxexample.docx";
+			string docName = Config._domain.ToLower() + "_" + Config._project.ToLower() +"_"+DateTime.Today.Year+"_"+DateTime.Today.Month.ToString("d2")+"_"+DateTime.Today.Day.ToString("d2")+".docx";
 
 			// Create a document in memory:
 			var doc = DocX.Create(docName);
@@ -189,7 +212,7 @@ namespace PMI
 										{
 											var fileNames = fileName.Split('\\');
 //											doc.InsertDocument(DocX.Load(fileNames[fileNames.Count() - 1]));
-											doc.InsertDocument(DocX.Load(@"c:\docxexample.docx"));
+//											doc.InsertDocument(DocX.Load(@"c:\docxexample.docx"));
 										}
 									}
 								}
@@ -259,7 +282,7 @@ namespace PMI
 		}
 
 
-		private void createWord2(List<List<string>> iDic)
+		private void CreateWord2(List<List<string>> iDic)
 		{
 			var word = new Microsoft.Office.Interop.Word.Application();
 			word.Visible = G_VISIBLE_WORD;
@@ -436,7 +459,7 @@ namespace PMI
 			}
 		}
 
-		public string StripHTML(string source)
+		public string StripHtml(string source)
 		{
 			try
 			{
