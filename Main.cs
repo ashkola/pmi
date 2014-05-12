@@ -42,7 +42,7 @@ namespace PMI
 //			tdConnection.IgnoreHtmlFormat = true;
 			var testF = tdConnection.TestFactory;
 			var testFilter = testF.Filter;
-			testFilter.Filter["TS_TYPE"] = "MANUAL";
+			testFilter.Filter["TS_TYPE"] = "MANUAL or QUICKTEST_TEST";
 			testFilter.Filter["TS_SUBJECT"] = Config._root;
 			testFilter.Order["TS_SUBJECT"] = 1;
 			testFilter.OrderDirection["TS_SUBJECT"] = tagTDAPI_FILTERORDER.TDOLE_ASCENDING;
@@ -52,7 +52,9 @@ namespace PMI
 			this.Value = (testList.Count > 0)?testList[1].Name:"";
 			foreach (Test testObj in testList)
 			{
-				SetEvaluatedSteps(testObj, testObj, ref resultTestSteps, null);
+				var testWithParameter = (ISupportTestParameters)testObj;
+				var list = testWithParameter.TestParameterFactory.NewList("");
+				SetEvaluatedSteps(testObj, testObj, ref resultTestSteps, list);
 			}
 			CreateWord(resultTestSteps);
 			return _docPath;
@@ -81,7 +83,7 @@ namespace PMI
 				if (stepObj.LinkTestID != 0)
 				{
 					
-					ISupportParameterValues dsWithParameter = (ISupportParameterValues) stepObj;
+					var dsWithParameter = (ISupportParameterValues) stepObj;
 					var list = dsWithParameter.ParameterValueFactory.NewList("");
 					SetEvaluatedSteps(rootTest, stepObj.LinkTest, ref resultList, list);
 				} else
@@ -90,7 +92,7 @@ namespace PMI
 					           	{
 					           		stepObj.StepName,
 					           		EvaluateStep(stepObj.StepDescription, parameterList),
-					           		EvaluateStep(stepObj.EvaluatedStepExpectedResult, parameterList),
+					           		EvaluateStep(stepObj.StepExpectedResult, parameterList),
 					           		"",
 					           		rootTest.ID.ToString(),
 					           		rootTest.Name,
@@ -121,8 +123,14 @@ namespace PMI
 			for (int i=1; i<=paramList.Count;i++)
 			{
 				string paramName = paramList[i].Name ?? "";
-
-				string paramValue = (paramList[i].ActualValue != null) ? StripHtml(paramList[i].ActualValue ?? "") : StripHtml(paramList[i].DefaultValue ?? "");
+				string paramValue = StripHtml(paramList[i].DefaultValue ?? "");
+				try
+				{
+					paramValue = (paramList[i].ActualValue != null) ? StripHtml(paramList[i].ActualValue ?? "") : StripHtml(paramList[i].DefaultValue ?? "");
+				} catch
+				{
+				}
+				
 				result = System.Text.RegularExpressions.Regex.Replace(result,
 						 @"<<<( )*"+paramName+"([^>])*>>>", "["+paramValue.Trim()+"]", 
 						 System.Text.RegularExpressions.RegexOptions.IgnoreCase);

@@ -172,11 +172,11 @@
 			// label7
 			// 
 			this.label7.AutoSize = true;
-			this.label7.Location = new System.Drawing.Point(353, 97);
+			this.label7.Location = new System.Drawing.Point(335, 97);
 			this.label7.Name = "label7";
-			this.label7.Size = new System.Drawing.Size(43, 13);
+			this.label7.Size = new System.Drawing.Size(61, 13);
 			this.label7.TabIndex = 12;
-			this.label7.Text = "v.04.22";
+			this.label7.Text = "2014.05.12";
 			// 
 			// Form1
 			// 
