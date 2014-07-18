@@ -163,11 +163,30 @@ namespace PMI
 			var tailRowNum = 0;
 			var currentTestId = iDic[0][4] ?? "";
 			var previousTestSubject = "";
+			var maxlevel = 0;
 
 			iDic.Add(new List<string>
 			                   	{
 			                   		"","","","","","","","","",""
 			                   	});
+
+			//calculate max level for test heading
+			for (int i = 1; i < iDic.Count; i++)
+			{
+				string currentTestSubject = iDic[i - 1][6];
+				if (!currentTestSubject.Equals(previousTestSubject))
+				{
+					if (currentTestSubject.Split('\\').Count() > maxlevel)
+					{
+						maxlevel = currentTestSubject.Split('\\').Count();
+					}
+
+					previousTestSubject = currentTestSubject;
+				}
+			}
+			previousTestSubject = "";
+
+			//writing content
 			for(int i=0;i<iDic.Count;i++)
 			{
 				if(iDic[i][4] == currentTestId)
@@ -193,7 +212,7 @@ namespace PMI
 								if (!currSubjectArray[headerLevel].Equals(prevSubjectArray[headerLevel]))
 								{
 									var p = doc.InsertParagraph();
-									p.StyleName = "Heading1";
+									p.StyleName = "Heading" + headerLevel;
 									p.Append(currSubjectArray[headerLevel]);
 								}
 							}
@@ -203,7 +222,7 @@ namespace PMI
 						{
 //							'Test name
 							var p = doc.InsertParagraph();
-							p.StyleName = "Heading3";
+							p.StyleName = "Heading"+maxlevel;
 							p.Append(iDic[i - 1][5]);
 //							'Description
 							doc.InsertParagraph(htmlToText(iDic[i - 1][7]));
