@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -44,18 +46,44 @@ namespace PMI
 			var testFilter = testF.Filter;
 			testFilter.Filter["TS_TYPE"] = "MANUAL or QUICKTEST_TEST";
 			testFilter.Filter["TS_SUBJECT"] = Config._root;
-			testFilter.Order["TS_SUBJECT"] = 1;
-			testFilter.OrderDirection["TS_SUBJECT"] = tagTDAPI_FILTERORDER.TDOLE_ASCENDING;
+			testFilter.Order["TS_PATH"] = 1;
+			testFilter.OrderDirection["TS_PATH"] = tagTDAPI_FILTERORDER.TDOLE_ASCENDING;
 			testFilter.Order["TS_NAME"] = 2;
-			testFilter.OrderDirection["TS_SUBJECT"] = tagTDAPI_FILTERORDER.TDOLE_ASCENDING;
+			testFilter.OrderDirection["TS_NAME"] = tagTDAPI_FILTERORDER.TDOLE_ASCENDING;
 			List testList = testFilter.NewList;
-			this.Value = (testList.Count > 0)?testList[1].Name:"";
+			this.Value = (testList.Count > 0) ? testList[1].Name : "";
 			foreach (Test testObj in testList)
 			{
 				var testWithParameter = (ISupportTestParameters)testObj;
 				var list = testWithParameter.TestParameterFactory.NewList("");
 				SetEvaluatedSteps(testObj, testObj, ref resultTestSteps, list);
 			}
+
+			string[][] arrays = resultTestSteps.Select(a => a.ToArray()).ToArray();
+			var dt = new DataTable();
+			for (int col = 0; col < 9; col++)
+			{
+				dt.Columns.Add((col+1).ToString());
+			}
+			for (int rowindex = 0; rowindex < arrays.Count(); rowindex++)
+			{
+				DataRow row = dt.NewRow();
+				for (int col = 0; col < 9; col++)
+				{
+					row[col] = arrays[rowindex][col];
+				}
+				dt.Rows.Add(row);
+			}
+
+			var sortedrows = dt.Select("", "4");
+//			sortedrows = dt.Select("", "COLUMN3 DESC");
+
+			for(int i=0;i<arrays.Count();i++)
+			{
+				var list = sortedrows[i].ItemArray.Select(o => o.ToString()).ToList();
+				resultTestSteps[i] = list;
+			}
+
 			CreateWord(resultTestSteps);
 			return _docPath;
 		}
@@ -78,40 +106,59 @@ namespace PMI
 				}
 			}
 			List stepList = stepFilter.NewList;
-			foreach (DesignStep stepObj in stepList)
+			if (stepList.Count != 0)
 			{
-				if (stepObj.LinkTestID != 0)
+
+				foreach (DesignStep stepObj in stepList)
 				{
-					
-					var dsWithParameter = (ISupportParameterValues) stepObj;
-					var list = dsWithParameter.ParameterValueFactory.NewList("");
-					SetEvaluatedSteps(rootTest, stepObj.LinkTest, ref resultList, list);
-				} else
-				{
-					var line = new List<string>
-					           	{
-					           		stepObj.StepName,
-					           		EvaluateStep(stepObj.StepDescription, parameterList),
-					           		EvaluateStep(stepObj.StepExpectedResult, parameterList),
-					           		"",
-					           		rootTest.ID.ToString(),
-					           		rootTest.Name,
-					           		rootTest["TS_SUBJECT"].Path,
-									rootTest["TS_DESCRIPTION"] ?? "",
-					           		testAttachPath
-					           	};
-					if (Config._attachment)
+					if (stepObj.LinkTestID != 0)
 					{
-						List stepAttachList = stepObj.Attachments.NewList("");
-						foreach (Attachment stepAttach in stepAttachList)
-						{
-							stepAttach.Load(false, "");
-							stepAttachPath = stepAttach.FileName + ";" + stepAttachPath;
-						}
-						line.Add(stepAttachPath);
+						var dsWithParameter = (ISupportParameterValues) stepObj;
+						var list = dsWithParameter.ParameterValueFactory.NewList("");
+						SetEvaluatedSteps(rootTest, stepObj.LinkTest, ref resultList, list);
 					}
-					resultList.Add(line);
+					else
+					{
+						var line = new List<string>
+						           	{
+						           		stepObj.StepName,
+						           		EvaluateStep(stepObj.StepDescription, parameterList),
+						           		EvaluateStep(stepObj.StepExpectedResult, parameterList),
+						           		rootTest["TS_SUBJECT"].Path + "\\Я" + rootTest.Name,
+						           		rootTest.ID.ToString(),
+						           		rootTest.Name,
+						           		rootTest["TS_SUBJECT"].Path,
+						           		rootTest["TS_DESCRIPTION"] ?? "",
+						           		testAttachPath
+						           	};
+						if (Config._attachment)
+						{
+							List stepAttachList = stepObj.Attachments.NewList("");
+							foreach (Attachment stepAttach in stepAttachList)
+							{
+								stepAttach.Load(false, "");
+								stepAttachPath = stepAttach.FileName + ";" + stepAttachPath;
+							}
+							line.Add(stepAttachPath);
+						}
+						resultList.Add(line);
+					}
 				}
+			} else
+			{
+				var line = new List<string>
+						           	{
+						           		"",
+						           		"",
+						           		"",
+						           		rootTest["TS_SUBJECT"].Path + "\\Я" + rootTest.Name,
+						           		rootTest.ID.ToString(),
+						           		rootTest.Name,
+						           		rootTest["TS_SUBJECT"].Path,
+						           		rootTest["TS_DESCRIPTION"] ?? "",
+						           		""
+						           	};				
+				resultList.Add(line);
 			}
 			return;
 		}
@@ -176,10 +223,10 @@ namespace PMI
 				string currentTestSubject = iDic[i - 1][6];
 				if (!currentTestSubject.Equals(previousTestSubject))
 				{
-					if (currentTestSubject.Split('\\').Count() > maxlevel)
-					{
-						maxlevel = currentTestSubject.Split('\\').Count();
-					}
+//					if (currentTestSubject.Split('\\').Count() > maxlevel)
+//					{
+//						maxlevel = currentTestSubject.Split('\\').Count();
+//					}
 
 					previousTestSubject = currentTestSubject;
 				}
@@ -221,6 +268,7 @@ namespace PMI
 						if (G_IS_FULL_REPORT)
 						{
 //							'Test name
+							maxlevel = iDic[i - 1][6].Split('\\').Count();
 							var p = doc.InsertParagraph();
 							p.StyleName = "Heading"+maxlevel;
 							p.Append(iDic[i - 1][5]);
@@ -244,19 +292,21 @@ namespace PMI
 									}
 								}
 							}
-//							'Table
+
+//							Test havent any steps, consist fake step with action = ###EmptyTest###
+//								'Table
 							var t = doc.InsertTable(rowsCount + 1, 3);
 							foreach (TableBorderType borderType in Enum.GetValues(typeof(TableBorderType)))
 							{
 								t.SetBorder(borderType, border);
 							}
 
-//							t.AutoFit = AutoFit.Contents;
+//								t.AutoFit = AutoFit.Contents;
 							t.Rows[0].Cells[0].Width = 50;
 							t.Rows[0].Cells[1].Width = 400;
 							t.Rows[0].Cells[2].Width = 400;
 
-//							'Table header
+//								'Table header
 							t.Rows[0].Cells[0].Paragraphs[0].Append("Номер шага");
 							t.Rows[0].Cells[0].Paragraphs[0].Bold();
 							t.Rows[0].Cells[1].Paragraphs[0].Append("Действие в системе");
@@ -268,21 +318,21 @@ namespace PMI
 							{
 								t.Rows[row].Cells[0].Width = 50;
 								t.Rows[row].Cells[0].Paragraphs[0].Append(row.ToString() + ".");
-//								if (Config._attachment)
-//								{
-//									if (iDic[row - 2][9] != "")
+//									if (Config._attachment)
 //									{
-////										word.Selection.TypeParagraph();
-//										foreach (string fileName in iDic[row - 2][9].Split(';'))
+//										if (iDic[row - 2][9] != "")
 //										{
-//											if (!fileName.Equals(""))
+//	//										word.Selection.TypeParagraph();
+//											foreach (string fileName in iDic[row - 2][9].Split(';'))
 //											{
-//												var xArr = fileName.Split('\\');
-////												word.Selection.InlineShapes.AddOLEObject(null, fileName, false, true, null, 1, xArr[xArr.Count() - 1]);
+//												if (!fileName.Equals(""))
+//												{
+//													var xArr = fileName.Split('\\');
+//	//												word.Selection.InlineShapes.AddOLEObject(null, fileName, false, true, null, 1, xArr[xArr.Count() - 1]);
+//												}
 //											}
 //										}
 //									}
-//								}
 								for (int colInRow = 1; colInRow < 3; colInRow++)
 								{
 									t.Rows[row].Cells[colInRow].Width = 400;

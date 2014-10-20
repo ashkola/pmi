@@ -176,7 +176,7 @@
 			this.label7.Name = "label7";
 			this.label7.Size = new System.Drawing.Size(61, 13);
 			this.label7.TabIndex = 12;
-			this.label7.Text = "2014.07.18";
+			this.label7.Text = "2014.10.20";
 			// 
 			// Form1
 			// 
